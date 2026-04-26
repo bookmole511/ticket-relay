@@ -16,6 +16,7 @@ from requests import Session
 from api_health_checker import ApiHealthChecker
 
 LOGGER = logging.getLogger(__name__)
+SUPPORTED_TICKET_TYPES = set(range(1, 13))
 
 
 class TicketParseError(ValueError):
@@ -87,7 +88,7 @@ class TicketForwarder:
         return self._post_with_retries(payload, path, start_time)
 
     def parse_ticket(self, path: Path) -> dict[str, Any]:
-        """Parse a JSON ticket file into a dictionary payload."""
+        """Parse and validate a JSON ticket file for TicketReceiverAPI."""
 
         try:
             with path.open("r", encoding="utf-8") as file:
@@ -99,12 +100,30 @@ class TicketForwarder:
 
         if not isinstance(data, dict):
             raise TicketParseError("ticket JSON must be an object")
-        if "ticket_id" not in data:
-            raise TicketParseError("missing required field: ticket_id")
-        if "subject" not in data:
-            raise TicketParseError("missing required field: subject")
+        self._validate_ticket_type(data.get("type"))
 
         return data
+
+    def _validate_ticket_type(self, ticket_type: object) -> None:
+        """Validate the required receiver API ticket type field."""
+
+        if ticket_type is None:
+            raise TicketParseError("missing required field: type")
+        if isinstance(ticket_type, bool):
+            raise TicketParseError("type must be an integer from 1 to 12")
+
+        normalized_type: Optional[int] = None
+        if isinstance(ticket_type, int):
+            normalized_type = ticket_type
+        elif isinstance(ticket_type, str):
+            stripped = ticket_type.strip()
+            if not stripped:
+                raise TicketParseError("type cannot be empty")
+            if stripped.isdigit():
+                normalized_type = int(stripped)
+
+        if normalized_type not in SUPPORTED_TICKET_TYPES:
+            raise TicketParseError("type must be an integer or integer-like string from 1 to 12")
 
     def _post_with_retries(
         self,

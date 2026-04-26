@@ -158,7 +158,7 @@ class TicketLogger:
         if ticket_content is None:
             return None
 
-        summary_keys = ("ticket_id", "subject", "priority", "status", "created_at")
+        summary_keys = ("ticket_id", "type", "subject", "priority", "status", "created_at")
         summary = {
             key: self._truncate(ticket_content.get(key))
             for key in summary_keys
